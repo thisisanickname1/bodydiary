@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#F6F3F0">
+    <title>Body Diary Pro</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" as="style" onload="this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Quicksand', 'sans-serif'] },
+                    colors: {
+                        sage: { 50: '#f6f7f5', 100: '#e8ede9', 200: '#d5ddd8', 300: '#b8cfc2', 500: '#7d9788', 600: '#688273', 700: '#536759' },
+                        dusty: { 50: '#faf6f6', 100: '#f3e9e9', 200: '#e6d3d3', 300: '#d8bcbc', 400: '#c59d9d', 500: '#aa8080' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #F6F3F0; -webkit-tap-highlight-color: transparent; }
+        .soft-card {
+            background: rgba(255,255,255,.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,.7);
+            box-shadow: 0 1px 2px rgba(0,0,0,.02), 0 12px 32px rgba(0,0,0,.05);
+        }
+        .chart-bar { transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .progress-ring-circle {
+            transition: stroke-dashoffset 0.6s ease, stroke 0.3s ease;
+            transform: rotate(-90deg); transform-origin: 50% 50%;
+        }
+        .bottom-sheet { transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .bottom-sheet.open { transform: translateY(0); }
+    </style>
+</head>
+<body class="font-sans text-gray-800 min-h-screen pb-28">
+
+    <div class="fixed top-0 left-0 right-0 h-64 pointer-events-none opacity-50">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full blur-[120px]" style="background-color: #E8E3DE;"></div>
+    </div>
+
+    <div class="max-w-md mx-auto px-4 pt-6 space-y-5">
+        
+        <header class="flex justify-between items-end mb-2">
+            <div>
+                <p class="text-xs tracking-widest text-sage-500 uppercase font-bold">BODY DIARY</p>
+                <h1 class="text-3xl font-bold text-gray-700 mt-1">今天感觉如何？</h1>
+            </div>
+            <div class="flex gap-2">
+                <button aria-label="导出数据" data-action="export" class="text-gray-400 hover:text-sage-600 p-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                </button>
+                <label aria-label="导入数据" class="text-gray-400 hover:text-sage-600 p-2 cursor-pointer">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <input type="file" accept=".json" class="hidden" data-action="import">
+                </label>
+            </div>
+        </header>
+
+        <div class="soft-card rounded-[28px] p-5">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full bg-sage-50 flex items-center justify-center text-lg" id="timeline-icon">☀️</div>
+                <div>
+                    <p class="text-sm font-bold text-gray-700" id="timeline-greeting">早上好</p>
+                    <p class="text-[11px] text-gray-400" id="timeline-date"></p>
+                </div>
+            </div>
+            <div id="timeline-events" class="space-y-2 pl-13 border-l-2 border-sage-100 ml-5 pt-1 pb-1"></div>
+        </div>
+
+        <div class="soft-card rounded-[28px] p-6">
+            <div class="flex items-center justify-between">
+                <div class="relative w-28 h-28 flex-shrink-0">
+                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                        <defs><linearGradient id="waterGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#b9d5c5"/><stop offset="100%" stop-color="#6b9f85"/></linearGradient></defs>
+                        <circle cx="50" cy="50" r="40" stroke="#f6f7f5" stroke-width="8" fill="none"/>
+                        <circle id="water-ring" class="progress-ring-circle" cx="50" cy="50" r="40" stroke="url(#waterGradient)" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <div class="text-lg mb-1">💧</div>
+                        <span class="text-2xl font-bold text-sage-600" id="water-current">0</span>
+                        <span class="text-[10px] text-gray-400 font-semibold water-goal-label">/ 2000 ml</span>
+                        <span id="water-left" class="text-[9px] text-gray-400 mt-1"></span>
+                    </div>
+                </div>
+                <div class="flex-1 pl-5 space-y-2">
+                    <div class="flex gap-2">
+                        <input type="number" id="custom-ml" placeholder="ml" min="1" max="2000" step="1" class="w-full bg-sage-50 border border-sage-100 rounded-xl px-3 py-2 text-sm font-bold text-sage-700 focus:outline-none focus:ring-1 focus:ring-sage-200">
+                        <button data-action="add-custom-water" class="bg-sage-500 text-white font-bold px-4 rounded-xl text-sm hover:bg-sage-600 active:scale-95 transition">记录</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button data-action="add-water" data-amount="150" class="bg-sage-50 text-sage-600 font-bold py-1.5 rounded-lg text-xs hover:bg-sage-100 border border-sage-100 active:scale-95 transition">+150</button>
+                        <button data-action="add-water" data-amount="250" class="bg-sage-50 text-sage-600 font-bold py-1.5 rounded-lg text-xs hover:bg-sage-100 border border-sage-100 active:scale-95 transition">+250</button>
+                        <button data-action="add-water" data-amount="500" class="bg-sage-50 text-sage-600 font-bold py-1.5 rounded-lg text-xs hover:bg-sage-100 border border-sage-100 active:scale-95 transition">+500</button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                <div class="flex gap-1.5 flex-1 items-center">
+                    <span class="text-[10px] text-gray-400 flex-shrink-0 mr-1">目标</span>
+                    <button data-action="set-water-goal" data-goal="1500" class="goal-opt flex-1 py-1 rounded-lg text-[10px] font-bold border border-sage-100 text-gray-400 hover:bg-sage-50 transition active:scale-95">1500</button>
+                    <button data-action="set-water-goal" data-goal="2000" class="goal-opt flex-1 py-1 rounded-lg text-[10px] font-bold border border-sage-100 text-gray-400 hover:bg-sage-50 transition active:scale-95">2000</button>
+                    <button data-action="set-water-goal" data-goal="2500" class="goal-opt flex-1 py-1 rounded-lg text-[10px] font-bold border border-sage-100 text-gray-400 hover:bg-sage-50 transition active:scale-95">2500</button>
+                    <button data-action="set-water-goal" data-goal="3000" class="goal-opt flex-1 py-1 rounded-lg text-[10px] font-bold border border-sage-100 text-gray-400 hover:bg-sage-50 transition active:scale-95">3000</button>
+                </div>
+                <button id="undo-btn" data-action="undo-water" class="hidden text-[10px] text-gray-300 hover:text-gray-500 transition px-2 py-1 rounded-lg hover:bg-gray-50 ml-2 flex-shrink-0">撤销</button>
+            </div>
+        </div>
+
+        <div class="soft-card rounded-[28px] p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-gray-700">喝水统计</h3>
+                <div class="flex bg-sage-50 rounded-lg p-0.5">
+                    <button data-action="switch-chart" data-type="week" id="btn-week" class="px-3 py-1 rounded-md text-xs font-bold bg-sage-500 text-white transition">本周</button>
+                    <button data-action="switch-chart" data-type="month" id="btn-month" class="px-3 py-1 rounded-md text-xs font-bold text-gray-500 transition">本月</button>
+                </div>
+            </div>
+            <div class="h-32 flex items-end gap-1 border-b border-gray-100 pb-1 relative" id="chart-container"></div>
+        </div>
+
+        <div class="soft-card rounded-[28px] p-6">
+            <h3 class="font-bold text-gray-700 mb-4">月经日历</h3>
+            <div class="flex justify-between items-center mb-4">
+                <button aria-label="上个月" data-action="prev-month" class="text-gray-400 hover:text-sage-600 p-2 active:scale-90 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg></button>
+                <button data-action="open-picker" class="font-bold text-gray-700 text-base hover:text-sage-600 transition" id="calendar-month-title">2026年6月</button>
+                <button aria-label="下个月" data-action="next-month" class="text-gray-400 hover:text-sage-600 p-2 active:scale-90 transition"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg></button>
+            </div>
+            <div class="grid grid-cols-7 gap-1 text-center mb-1">
+                <span class="text-[10px] text-gray-300 font-semibold">一</span><span class="text-[10px] text-gray-300 font-semibold">二</span><span class="text-[10px] text-gray-300 font-semibold">三</span><span class="text-[10px] text-gray-300 font-semibold">四</span><span class="text-[10px] text-gray-300 font-semibold">五</span><span class="text-[10px] text-gray-300 font-semibold">六</span><span class="text-[10px] text-gray-300 font-semibold">日</span>
+            </div>
+            <div id="main-calendar-grid" class="grid grid-cols-7 gap-1"></div>
+            <div class="flex gap-3 flex-wrap mt-3 justify-center">
+                <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-dusty-300"></div><span class="text-[10px] text-gray-400">经期</span></div>
+                <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-sage-200"></div><span class="text-[10px] text-gray-400">卵泡期</span></div>
+                <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-amber-200"></div><span class="text-[10px] text-gray-400">排卵期</span></div>
+                <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full bg-purple-200"></div><span class="text-[10px] text-gray-400">黄体期</span></div>
+            </div>
+            <div id="date-editor" class="hidden mt-4 pt-4 border-t border-gray-100">
+                <p class="text-xs text-gray-500 font-semibold mb-2 text-center" id="editor-date-text"></p>
+                <div class="grid grid-cols-5 gap-2">
+                    <button data-action="set-flow" data-flow="spotting" class="editor-flow-btn py-2 rounded-xl text-xs font-bold border border-dusty-100 text-gray-400 hover:bg-dusty-50 active:scale-95 transition">点滴</button>
+                    <button data-action="set-flow" data-flow="light" class="editor-flow-btn py-2 rounded-xl text-xs font-bold border border-dusty-100 text-gray-400 hover:bg-dusty-50 active:scale-95 transition">少</button>
+                    <button data-action="set-flow" data-flow="medium" class="editor-flow-btn py-2 rounded-xl text-xs font-bold border border-dusty-100 text-gray-400 hover:bg-dusty-50 active:scale-95 transition">中</button>
+                    <button data-action="set-flow" data-flow="heavy" class="editor-flow-btn py-2 rounded-xl text-xs font-bold border border-dusty-100 text-gray-400 hover:bg-dusty-50 active:scale-95 transition">多</button>
+                    <button data-action="clear-flow" class="py-2 rounded-xl text-xs font-semibold text-gray-300 hover:text-gray-500 hover:bg-gray-50 active:scale-95 transition">清除</button>
+                </div>
+                <div class="mt-3">
+                    <p class="text-[10px] text-gray-400 mb-2 font-semibold">症状记录</p>
+                    <div id="symptom-container" class="flex flex-wrap gap-1.5"></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 mt-5 mb-4">
+                <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3"><p class="uppercase tracking-wider text-[9px] text-gray-400 font-semibold">平均周期</p><p class="text-lg font-bold text-gray-700 mt-1" id="avg-cycle">-- 天</p></div>
+                <div class="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-3"><p class="uppercase tracking-wider text-[9px] text-gray-400 font-semibold">持续天数</p><p class="text-lg font-bold text-gray-700 mt-1" id="avg-duration">-- 天</p></div>
+                <div class="bg-dusty-50 rounded-2xl p-3"><p class="uppercase tracking-wider text-[9px] text-dusty-400 font-semibold">预测下次</p><p class="text-[11px] font-bold text-dusty-500 mt-1 leading-tight" id="next-period">--</p></div>
+            </div>
+            <div class="mb-4">
+                <p class="text-[9px] text-gray-400 font-semibold text-center">周期稳定性</p>
+                <div class="flex justify-center items-center gap-2 mt-1">
+                    <span class="text-[10px] text-gray-400">稳定</span>
+                    <div class="flex-1 bg-gray-100 rounded-full h-1.5"><div id="stability-bar" class="bg-dusty-400 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div></div>
+                    <span class="text-[10px] text-gray-400">不规律</span>
+                </div>
+            </div>
+            <div class="flex items-center bg-gray-50 rounded-2xl p-3">
+                <div class="flex-1 text-center border-r border-gray-200 pr-4"><p class="text-[10px] text-gray-400 font-semibold">当前状态</p><p class="text-sm font-bold text-dusty-500 mt-0.5" id="period-status">暂无数据</p></div>
+                <div class="w-20 text-center"><p class="text-[10px] text-gray-400 font-semibold">倒计时</p><p class="text-xl font-bold text-dusty-400 mt-0.5" id="period-countdown">--</p></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="date-picker-sheet" class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-end z-50 bottom-sheet">
+        <div class="bg-white rounded-t-3xl w-full max-w-md mx-auto p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-gray-700">选择日期</h3>
+                <button aria-label="关闭选择器" data-action="close-picker" class="text-gray-300 hover:text-gray-500 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            <div class="mb-6">
+                <h4 class="text-sm font-semibold text-gray-500 mb-3">选择年份</h4>
+                <div id="year-selector" class="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto"></div>
+            </div>
+            <div class="mb-6">
+                <h4 class="text-sm font-semibold text-gray-500 mb-3">选择月份</h4>
+                <div id="month-selector" class="grid grid-cols-3 gap-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const MS_PER_DAY = 86400000;
+        const parseLocalDate = (s) => new Date(s + 'T00:00:00');
+        const getTodayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+        const getDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const SYMPTOM_LIST = [ { key: 'cramp', label: '痛经' }, { key: 'bloat', label: '腹胀' }, { key: 'fatigue', label: '疲惫' }, { key: 'headache', label: '头痛' }, { key: 'mood', label: '情绪波动' }, { key: 'acne', label: '痘痘' } ];
+        const PHASE_STYLE = { spotting: { bg: 'bg-dusty-50', custom: 'phase-period' }, light: { bg: 'bg-dusty-100', custom: 'phase-period' }, medium: { bg: 'bg-dusty-200', custom: 'phase-period' }, heavy: { bg: 'bg-dusty-300', custom: 'phase-period' }, follicular: { bg: 'bg-sage-50', custom: 'phase-follicular' }, ovulation: { bg: 'bg-amber-50', custom: 'phase-ovulation' }, luteal: { bg: 'bg-purple-50', custom: 'phase-luteal' }, period: { bg: 'bg-dusty-50', custom: 'phase-period' } };
+
+        function h(tag, className, attrs, children) { const el = document.createElement(tag); if (className) el.className = className; if (attrs) { Object.entries(attrs).forEach(([k, v]) => { if (k === 'textContent') el.textContent = v; else el.setAttribute(k, v); }); } if (children) { children.forEach(c => { if (c) el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }); } return el; }
+
+        const Store = {
+            _saveTimer: null,
+            state: { waterLog: {}, currentWater: 0, waterStack: [], waterGoal: 2000, periodHistory: [], dailyFlowLog: {}, symptomLog: {}, ui: { calYear: new Date().getFullYear(), calMonth: new Date().getMonth(), selectedDate: null, chartType: 'week' } },
+            init() { 
+                try { 
+                    const saved = JSON.parse(localStorage.getItem('bodyDiaryDB') || '{}'); 
+                    if (saved.__version === 2) { 
+                        this.state.waterLog = saved.waterLog || {}; 
+                        this.state.waterGoal = saved.waterGoal || 2000; 
+                        this.state.waterStack = saved.waterStack || []; 
+                        this.state.dailyFlowLog = saved.dailyFlowLog || {}; 
+                        this.state.symptomLog = saved.symptomLog || {}; 
+                        this.state.periodHistory = saved.periodHistory || []; 
+                    } else if (saved.__version === 1) { 
+                        this.state.waterLog = saved.waterLog || {}; 
+                        this.state.dailyFlowLog = saved.dailyFlowLog || {}; 
+                        this.state.periodHistory = saved.periodHistory || []; 
+                    } 
+                    this.state.currentWater = this.state.waterLog[getTodayStr()] || 0;
+                    this.state.waterStack = [];
+                } catch (e) { console.error('Store.init 失败', e); } 
+            },
+            save() { clearTimeout(this._saveTimer); this._saveTimer = setTimeout(() => { try { const data = { __version: 2, waterLog: this.state.waterLog, waterGoal: this.state.waterGoal, waterStack: this.state.waterStack, dailyFlowLog: this.state.dailyFlowLog, symptomLog: this.state.symptomLog, periodHistory: this.state.periodHistory }; localStorage.setItem('bodyDiaryDB', JSON.stringify(data)); } catch (e) { if (e.name === 'QuotaExceededError' || e.code === 22) alert('⚠️ 存储空间已满，建议导出备份后清理。'); } }, 300); }
+        };
+
+        const App = {
+            Water: {
+                add(amount) { const s = Store.state; s.waterStack.push(s.currentWater); if (s.waterStack.length > 20) s.waterStack.shift(); s.currentWater = Math.min(s.currentWater + amount, 8000); s.waterLog[getTodayStr()] = s.currentWater; Store.save(); UI.Water.render(); UI.Chart.render(); UI.Timeline.render(); },
+                addCustom() { const input = document.getElementById('custom-ml'); const ml = parseInt(input.value); if (ml && ml > 0) { this.add(ml); input.value = ''; } },
+                undo() { const s = Store.state; if (s.waterStack.length === 0) return; s.currentWater = s.waterStack.pop(); s.waterLog[getTodayStr()] = s.currentWater; Store.save(); UI.Water.render(); UI.Chart.render(); UI.Timeline.render(); },
+                setGoal(ml) { Store.state.waterGoal = ml; Store.save(); UI.Water.render(); UI.Water.renderGoal(); UI.Chart.render(); }
+            },
+            Period: {
+                rebuildHistory() {
+                    const s = Store.state; const dates = Object.keys(s.dailyFlowLog).sort();
+                    if (dates.length === 0) { s.periodHistory = []; Store.save(); return; }
+                    let newHistory = [], periodStart = null, prevDate = null;
+                    dates.forEach((ds) => {
+                        const curDate = parseLocalDate(ds);
+                        const gap = prevDate ? Math.round((curDate - prevDate) / MS_PER_DAY) : 1;
+                        if (gap >= 2) { if (periodStart) { newHistory.push({ start: periodStart, end: getDateStr(prevDate) }); periodStart = null; } }
+                        if (!periodStart) periodStart = ds;
+                        prevDate = curDate;
+                    });
+                    if (periodStart) { 
+                        const lastDate = parseLocalDate(dates[dates.length - 1]);
+                        const startDate = parseLocalDate(periodStart);
+                        const diff = Math.round((lastDate - startDate) / MS_PER_DAY);
+                        if (diff === 0) {
+                            newHistory.push({ start: periodStart, end: periodStart });
+                        } else {
+                            newHistory.push({ start: periodStart, end: null });
+                        }
+                    }
+                    newHistory = newHistory.filter(p => {
+                        const start = parseLocalDate(p.start);
+                        const end = p.end ? parseLocalDate(p.end) : start;
+                        return Math.round((end - start) / MS_PER_DAY) + 1 >= 1;
+                    });
+                    s.periodHistory = newHistory; Store.save();
+                },
+                quickMark(dateStr) {
+                    Store.state.dailyFlowLog[dateStr] = 'medium';
+                    Store.save();
+                    this.rebuildHistory();
+                    this._invalidateCache();
+                    UI.Calendar.render();
+                    UI.Calendar.renderEditor();
+                    UI.Period.renderStats();
+                    UI.Timeline.render();
+                },
+                setFlow(flow) { const d = Store.state.ui.selectedDate; if (!d) return; Store.state.dailyFlowLog[d] = flow; Store.save(); this.rebuildHistory(); this._invalidateCache(); UI.Calendar.render(); UI.Calendar.renderEditor(); UI.Period.renderStats(); UI.Timeline.render(); },
+                clearFlow() { const d = Store.state.ui.selectedDate; if (!d || !Store.state.dailyFlowLog[d]) return; delete Store.state.dailyFlowLog[d]; Store.save(); this.rebuildHistory(); this._invalidateCache(); UI.Calendar.render(); UI.Calendar.renderEditor(); UI.Period.renderStats(); UI.Timeline.render(); },
+                toggleSymptom(key) { const d = Store.state.ui.selectedDate; if (!d) return; const s = Store.state; if (!s.symptomLog[d]) s.symptomLog[d] = []; const idx = s.symptomLog[d].indexOf(key); if (idx > -1) s.symptomLog[d].splice(idx, 1); else s.symptomLog[d].push(key); Store.save(); UI.Calendar.renderSymptoms(d); UI.Timeline.render(); },
+                _statsCache: null, _statsCacheKey: null,
+                _invalidateCache() { this._statsCache = null; this._statsCacheKey = null; },
+                computeStats() {
+                    const key = JSON.stringify(Store.state.periodHistory);
+                    if (key === this._statsCacheKey) return this._statsCache;
+                    const s = Store.state; const defaults = { avgCycle: 0, avgDuration: 0, nextPeriodDate: null, nextPeriodRange: null, stdDev: 0, isOnPeriod: false, currentPeriodDay: 0, daysToNext: null, insufficientData: true };
+                    if (s.periodHistory.length === 0) return defaults;
+                    const today = new Date(); today.setHours(0,0,0,0); let totalD = 0, validC = 0, isOn = false, curDay = 0;
+                    s.periodHistory.forEach(p => { const st = parseLocalDate(p.start); const en = p.end ? parseLocalDate(p.end) : today; const dur = Math.round((en - st) / MS_PER_DAY) + 1; if (p.end === null && today >= st) { isOn = true; curDay = Math.round((today - st) / MS_PER_DAY) + 1; } if (p.end) { totalD += dur; validC++; } });
+                    
+                    let wCycle = 28, stdD = 0, cLens = [];
+                    const insufficientData = validC < 2;
+                    
+                    if (!insufficientData) {
+                        for (let i = 1; i < s.periodHistory.length; i++) { if (s.periodHistory[i].end && s.periodHistory[i - 1].end) { const diff = Math.round((parseLocalDate(s.periodHistory[i].start) - parseLocalDate(s.periodHistory[i - 1].start)) / MS_PER_DAY); if (diff > 10 && diff < 90) cLens.push(diff); } } 
+                        if (cLens.length > 0) { const rc = cLens.slice(-3), rAvg = rc.reduce((a, b) => a + b, 0) / rc.length, hAvg = cLens.reduce((a, b) => a + b, 0) / cLens.length; wCycle = Math.round(rAvg * 0.6 + hAvg * 0.4); if (cLens.length > 1) stdD = Math.sqrt(cLens.reduce((sq, n) => sq + Math.pow(n - hAvg, 2), 0) / cLens.length); }
+                    }
+
+                    const lastStart = parseLocalDate(s.periodHistory[s.periodHistory.length - 1].start);
+                    let nextD = null;
+                    if (!insufficientData) {
+                        nextD = new Date(lastStart);
+                        nextD.setDate(nextD.getDate() + wCycle);
+                        while (nextD <= today) {
+                            nextD.setDate(nextD.getDate() + wCycle);
+                        }
+                    }
+                    const daysToNext = nextD ? Math.round((nextD - today) / MS_PER_DAY) : null;
+
+                    let range = null; 
+                    if (stdD > 0.5 && wCycle > 0 && nextD) { 
+                        let rStartOffset = wCycle - stdD;
+                        let rEndOffset = wCycle + stdD;
+                        while (new Date(lastStart.getTime() + rStartOffset * MS_PER_DAY) <= today) {
+                            rStartOffset += wCycle;
+                            rEndOffset += wCycle;
+                        }
+                        const rStart = new Date(lastStart.getTime() + rStartOffset * MS_PER_DAY);
+                        const rEnd = new Date(lastStart.getTime() + rEndOffset * MS_PER_DAY);
+                        range = [rStart, rEnd]; 
+                    }
+                    
+                    const result = { avgCycle: wCycle, avgDuration: validC > 0 ? Math.round(totalD / validC) : 0, nextPeriodDate: nextD, nextPeriodRange: range, stdDev: stdD, isOnPeriod: isOn, currentPeriodDay: curDay, daysToNext, insufficientData };
+                    this._statsCacheKey = key; this._statsCache = result; return result;
+                },
+                getDayPhase(dateStr) { if (!Store.state.periodHistory.length) return null; if (Store.state.dailyFlowLog[dateStr]) return Store.state.dailyFlowLog[dateStr]; const stats = this.computeStats(); if (stats.avgCycle === 0 || stats.insufficientData) return null; const lastStart = parseLocalDate(Store.state.periodHistory[Store.state.periodHistory.length - 1].start); const date = parseLocalDate(dateStr); let day = Math.round((date - lastStart) / MS_PER_DAY) % stats.avgCycle; if (day < 0) day += stats.avgCycle; if (day < stats.avgDuration) return 'period'; if (day < stats.avgCycle * 0.42) return 'follicular'; if (day < stats.avgCycle * 0.57) return 'ovulation'; return 'luteal'; }
+            },
+            Calendar: {
+                prev() { const s = Store.state.ui; s.calMonth--; if (s.calMonth < 0) { s.calMonth = 11; s.calYear--; } s.selectedDate = null; UI.Calendar.render(); UI.Calendar.hideEditor(); },
+                next() { const s = Store.state.ui; s.calMonth++; if (s.calMonth > 11) { s.calMonth = 0; s.calYear++; } s.selectedDate = null; UI.Calendar.render(); UI.Calendar.hideEditor(); },
+                selectDate(d) { Store.state.ui.selectedDate = d; UI.Calendar.render(); UI.Calendar.renderEditor(); },
+                openPicker() { UI.Calendar._yearPickerBase = Store.state.ui.calYear; document.getElementById('date-picker-sheet').classList.add('open'); UI.Calendar.renderPickerYears(); UI.Calendar.renderPickerMonths(); },
+                closePicker() { document.getElementById('date-picker-sheet').classList.remove('open'); },
+                setPickerYear(y) { Store.state.ui.calYear = y; UI.Calendar.renderPickerYears(); UI.Calendar.renderPickerMonths(); },
+                setPickerMonth(m) { const s = Store.state.ui; s.calMonth = m; s.selectedDate = null; this.closePicker(); UI.Calendar.render(); UI.Calendar.hideEditor(); },
+                pickerYearPrev() { UI.Calendar._yearPickerBase -= 10; UI.Calendar.renderPickerYears(); },
+                pickerYearNext() { UI.Calendar._yearPickerBase += 10; UI.Calendar.renderPickerYears(); }
+            },
+            Chart: { switch(type) { Store.state.ui.chartType = type; UI.Chart.render(); } },
+            exportData() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(Store.state, null, 2)); const a = document.createElement('a'); a.setAttribute("href", dataStr); a.setAttribute("download", "body_diary_backup.json"); a.click(); },
+            importData(event) {
+                const file = event.target.files[0]; if (!file) return; const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const data = JSON.parse(e.target.result); const dateRe = /^\d{4}-\d{2}-\d{2}$/; const validFlows = new Set(['spotting', 'light', 'medium', 'heavy']); const validSymptomKeys = new Set(SYMPTOM_LIST.map(s => s.key));
+                        function isDateKeyed(obj) { return obj && typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).every(k => dateRe.test(k)); }
+                        if (!isDateKeyed(data.waterLog) || !Object.values(data.waterLog).every(v => typeof v === 'number' && v >= 0 && v <= 50000)) throw new Error('waterLog 格式有误');
+                        if (!isDateKeyed(data.dailyFlowLog) || !Object.values(data.dailyFlowLog).every(v => validFlows.has(v))) throw new Error('dailyFlowLog 格式有误');
+                        if (!isDateKeyed(data.symptomLog) || !Object.values(data.symptomLog).every(arr => Array.isArray(arr) && arr.every(k => validSymptomKeys.has(k)))) throw new Error('symptomLog 格式有误');
+                        if (typeof data.waterGoal !== 'number' || data.waterGoal < 500 || data.waterGoal > 10000) throw new Error('waterGoal 格式有误');
+                        
+                        Store.state.waterLog = data.waterLog;
+                        Store.state.dailyFlowLog = data.dailyFlowLog;
+                        Store.state.symptomLog = data.symptomLog;
+                        Store.state.waterGoal = data.waterGoal;
+                        Store.state.periodHistory = data.periodHistory || [];
+                        Store.state.waterStack = [];
+                        
+                        if (!Store.state.periodHistory.length && Store.state.dailyFlowLog) {
+                            App.Period.rebuildHistory();
+                        }
+                        
+                        App.Period._invalidateCache();
+                        Store.state.currentWater = Store.state.waterLog[getTodayStr()] || 0;
+                        Store.save(); UI.refresh(); alert('✅ 恢复成功！');
+                    } catch (err) { alert(`❌ 文件格式有误：${err.message || '请检查文件内容'}`); }
+                };
+                reader.readAsText(file); event.target.value = '';
+            }
+        };
+
+        const UI = {
+            init() {
+                Store.init(); const hour = new Date().getHours();
+                document.getElementById('timeline-icon').textContent = hour < 12 ? '☀️' : (hour < 18 ? '🌤' : '🌙');
+                document.getElementById('timeline-greeting').textContent = hour < 12 ? '早上好' : (hour < 18 ? '下午好' : '晚上好');
+                document.getElementById('timeline-date').textContent = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
+                this.refresh(); this.bindEvents(); this.initSwipe();
+            },
+            refresh() { this.Water.render(); this.Water.renderGoal(); this.Chart.render(); this.Calendar.render(); this.Period.renderStats(); this.Timeline.render(); },
+            bindEvents() {
+                document.body.addEventListener('click', e => {
+                    const btn = e.target.closest('[data-action]'); if (!btn) return; const action = btn.dataset.action;
+                    switch (action) {
+                        case 'add-water': App.Water.add(parseInt(btn.dataset.amount)); break;
+                        case 'add-custom-water': App.Water.addCustom(); break;
+                        case 'undo-water': App.Water.undo(); break;
+                        case 'set-water-goal': App.Water.setGoal(parseInt(btn.dataset.goal)); break;
+                        case 'switch-chart': App.Chart.switch(btn.dataset.type); break;
+                        case 'prev-month': App.Calendar.prev(); break;
+                        case 'next-month': App.Calendar.next(); break;
+                        case 'open-picker': App.Calendar.openPicker(); break;
+                        case 'close-picker': App.Calendar.closePicker(); break;
+                        case 'select-date': App.Calendar.selectDate(btn.dataset.date); break;
+                        case 'set-flow': App.Period.setFlow(btn.dataset.flow); break;
+                        case 'clear-flow': App.Period.clearFlow(); break;
+                        case 'toggle-symptom': App.Period.toggleSymptom(btn.dataset.symptom); break;
+                        case 'set-picker-year': App.Calendar.setPickerYear(parseInt(btn.dataset.year)); break;
+                        case 'set-picker-month': App.Calendar.setPickerMonth(parseInt(btn.dataset.month)); break;
+                        case 'picker-year-prev': App.Calendar.pickerYearPrev(); break;
+                        case 'picker-year-next': App.Calendar.pickerYearNext(); break;
+                        case 'export': App.exportData(); break;
+                    }
+                });
+                // 长按快速标记经期
+                let pressTimer = null;
+                const grid = document.getElementById('main-calendar-grid');
+                grid.addEventListener('touchstart', (e) => {
+                    const dateDiv = e.target.closest('[data-action="select-date"]');
+                    if (dateDiv) {
+                        pressTimer = setTimeout(() => {
+                            const dateStr = dateDiv.getAttribute('data-date');
+                            if (dateStr) {
+                                e.preventDefault();
+                                App.Period.quickMark(dateStr);
+                                // 可选：震动反馈（如果支持）
+                                if (navigator.vibrate) navigator.vibrate(50);
+                            }
+                        }, 500);
+                    }
+                });
+                grid.addEventListener('touchend', () => {
+                    if (pressTimer) clearTimeout(pressTimer);
+                });
+                grid.addEventListener('touchcancel', () => {
+                    if (pressTimer) clearTimeout(pressTimer);
+                });
+                // 鼠标版本（用于调试，保留）
+                grid.addEventListener('mousedown', (e) => {
+                    const dateDiv = e.target.closest('[data-action="select-date"]');
+                    if (dateDiv) {
+                        pressTimer = setTimeout(() => {
+                            const dateStr = dateDiv.getAttribute('data-date');
+                            if (dateStr) {
+                                e.preventDefault();
+                                App.Period.quickMark(dateStr);
+                            }
+                        }, 500);
+                    }
+                });
+                grid.addEventListener('mouseup', () => {
+                    if (pressTimer) clearTimeout(pressTimer);
+                });
+                grid.addEventListener('mouseleave', () => {
+                    if (pressTimer) clearTimeout(pressTimer);
+                });
+                
+                document.querySelector('[data-action="import"]').addEventListener('change', e => App.importData(e));
+                document.getElementById('date-picker-sheet').addEventListener('click', e => { if (e.target === e.currentTarget) App.Calendar.closePicker(); });
+            },
+            initSwipe() { let sx=0, sy=0; const el=document.getElementById('main-calendar-grid'); el.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true}); el.addEventListener('touchend',e=>{const dx=sx-e.changedTouches[0].clientX;const dy=Math.abs(sy-e.changedTouches[0].clientY);if(Math.abs(dx)>48&&dy<30){dx>0?App.Calendar.next():App.Calendar.prev()}},{passive:true}); },
+            Water: {
+                render() { const s=Store.state; document.getElementById('water-current').textContent=s.currentWater; const prev=parseFloat(document.getElementById('water-ring').style.strokeDashoffset)||251.2; const filled=Math.min(s.currentWater/s.waterGoal,1); const next=251.2-filled*251.2; document.getElementById('water-ring').style.strokeDashoffset=next; const left=Math.max(0,s.waterGoal-s.currentWater); document.getElementById('water-left').textContent=left===0?'今日已达标':`还差 ${left} ml`; if(prev>0&&next<=0){const r=document.getElementById('water-ring');r.style.stroke='#f0c060';setTimeout(()=>{r.style.stroke='url(#waterGradient)'},1200)} document.getElementById('undo-btn').classList.toggle('hidden',s.waterStack.length===0); },
+                renderGoal() { const s=Store.state; document.querySelectorAll('.water-goal-label').forEach(el=>el.textContent=`/ ${s.waterGoal} ml`); document.querySelectorAll('.goal-opt').forEach(btn=>{const v=parseInt(btn.dataset.goal);if(v===s.waterGoal){btn.classList.add('bg-sage-500','text-white','border-sage-500');btn.classList.remove('text-gray-400','border-sage-100')}else{btn.classList.remove('bg-sage-500','text-white','border-sage-500');btn.classList.add('text-gray-400','border-sage-100')}}); }
+            },
+            Chart: {
+                render() {
+                    const s=Store.state; const type=s.ui.chartType; const container=document.getElementById('chart-container'); container.innerHTML='';
+                    document.getElementById('btn-week').className=type==='week'?'px-3 py-1 rounded-md text-xs font-bold bg-sage-500 text-white transition':'px-3 py-1 rounded-md text-xs font-bold text-gray-500 transition hover:bg-sage-50';
+                    document.getElementById('btn-month').className=type==='month'?'px-3 py-1 rounded-md text-xs font-bold bg-sage-500 text-white transition':'px-3 py-1 rounded-md text-xs font-bold text-gray-500 transition hover:bg-sage-50';
+                    const today=new Date(); const days=type==='week'?7:30; const data=[];
+                    for(let i=days-1;i>=0;i--){const d=new Date(today);d.setDate(d.getDate()-i);const ds=getDateStr(d);data.push({date:d,amount:s.waterLog[ds]||0,dateStr:ds})}
+                    const amounts=data.map(d=>d.amount).filter(v=>v>0).sort((a,b)=>a-b); let maxVal=s.waterGoal; if(amounts.length>0){maxVal=Math.max(amounts[Math.floor(amounts.length*0.9)]||s.waterGoal,s.waterGoal)}
+                    const fragment=document.createDocumentFragment();
+                    data.forEach(item=>{
+                        const hP=(item.amount/maxVal)*100; const isT=item.dateStr===getTodayStr();
+                        const wrapper=h('div','flex-1 flex flex-col items-center justify-end h-full relative group');
+                        const tooltip=h('div','absolute -top-6 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap',{textContent:`${item.amount}ml`});
+                        const bar=h('div','w-full max-w-[16px] rounded-full chart-bar');
+                        bar.style.height = item.amount === 0 ? '0%' : `${Math.max(hP, 3)}%`;
+                        bar.style.background=isT?'linear-gradient(to top,#6b9f85,#bdd8ca)':'linear-gradient(to top,#b8cfc2,#e4eee8)';
+                        bar.title = `${item.amount}ml`;
+                        const label=h('div','text-[9px] text-gray-400 mt-1 font-semibold');
+                        if(type==='week') {
+                            label.textContent=item.date.toLocaleDateString('zh-CN',{weekday:'short'}).substring(0,2);
+                        } else {
+                            const day = item.date.getDate();
+                            label.textContent = (day === 1 || day % 5 === 0 || isT) ? day : '';
+                        }
+                        wrapper.appendChild(tooltip);wrapper.appendChild(bar);wrapper.appendChild(label);fragment.appendChild(wrapper);
+                    });
+                    container.appendChild(fragment);
+                }
+            },
+            Calendar: {
+                _yearPickerBase: null,
+                render() { 
+                    const s=Store.state.ui; 
+                    document.getElementById('calendar-month-title').textContent=`${s.calYear}年${s.calMonth+1}月`; 
+                    const grid=document.getElementById('main-calendar-grid'); 
+                    grid.innerHTML=''; 
+                    const fDay=new Date(s.calYear,s.calMonth,1).getDay(); 
+                    const dInM=new Date(s.calYear,s.calMonth+1,0).getDate(); 
+                    const off=fDay===0?6:fDay-1; 
+                    const fragment=document.createDocumentFragment(); 
+                    for(let i=0;i<off;i++)fragment.appendChild(h('div','h-12')); 
+                    for(let day=1;day<=dInM;day++){
+                        const ds=`${s.calYear}-${String(s.calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                        const isT=ds===getTodayStr();
+                        const phase=App.Period.getDayPhase(ds); 
+                        const style=PHASE_STYLE[phase]||{bg:'bg-white',custom:''}; 
+                        const isFlow=['spotting','light','medium','heavy'].includes(phase); 
+                        const div=h('div',`relative flex flex-col items-center justify-center h-12 rounded-xl cursor-pointer transition-all hover:bg-gray-50 ${style.bg} ${style.custom} ${isT?'ring-2 ring-sage-500 ring-offset-2':''} ${s.selectedDate===ds?'ring-2 ring-dusty-400 ring-offset-1':''}`,{'data-action':'select-date','data-date':ds}); 
+                        div.appendChild(h('span',`text-xs ${isFlow?'font-bold text-dusty-600':'text-gray-600'}`,{textContent:day})); 
+                        if(isFlow)div.appendChild(h('span','w-1 h-1 bg-dusty-500 rounded-full mt-0.5 absolute bottom-1'));
+                        fragment.appendChild(div); 
+                    } 
+                    grid.appendChild(fragment); 
+                },
+                renderEditor() { const d=Store.state.ui.selectedDate; if(!d)return; document.getElementById('date-editor').classList.remove('hidden'); document.getElementById('editor-date-text').textContent=`${parseLocalDate(d).toLocaleDateString('zh-CN',{month:'long',day:'numeric'})} 经量记录`; const flow=Store.state.dailyFlowLog[d]; document.querySelectorAll('.editor-flow-btn').forEach(btn=>{const bf=btn.dataset.flow;if(bf===flow){btn.classList.add('bg-dusty-400','text-white','border-dusty-400');btn.classList.remove('text-gray-400','border-dusty-100')}else{btn.classList.remove('bg-dusty-400','text-white','border-dusty-400');btn.classList.add('text-gray-400','border-dusty-100')}}); this.renderSymptoms(d); },
+                hideEditor() { document.getElementById('date-editor').classList.add('hidden'); },
+                renderSymptoms(dateStr) { const c=document.getElementById('symptom-container'); const active=Store.state.symptomLog[dateStr]||[]; c.innerHTML=''; const fragment=document.createDocumentFragment(); SYMPTOM_LIST.forEach(s=>{const isA=active.includes(s.key); fragment.appendChild(h('button',`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition active:scale-95 ${isA?'bg-dusty-100 border-dusty-200 text-dusty-600':'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`,{'data-action':'toggle-symptom','data-symptom':s.key,textContent:s.label})); }); c.appendChild(fragment); },
+                renderPickerYears() { 
+                    if (!this._yearPickerBase) this._yearPickerBase = Store.state.ui.calYear;
+                    const s = Store.state.ui; 
+                    const ys = document.getElementById('year-selector'); 
+                    ys.innerHTML=''; 
+                    const fragment=document.createDocumentFragment(); 
+                    fragment.appendChild(h('button', 'p-2 rounded-lg text-xs font-bold text-sage-600 hover:bg-sage-50 transition active:scale-95', {
+                        'data-action': 'picker-year-prev', textContent: '← 更早'
+                    }));
+                    const startYear = this._yearPickerBase - 4;
+                    const endYear = this._yearPickerBase + 5;
+                    for(let y = startYear; y <= endYear; y++){
+                        fragment.appendChild(h('button', `p-2 rounded-lg text-sm font-bold transition ${y===s.calYear?'bg-sage-500 text-white':'bg-gray-50 text-gray-700 hover:bg-gray-100'}`, {
+                            'data-action':'set-picker-year','data-year':y, textContent:y
+                        }));
+                    }
+                    fragment.appendChild(h('button', 'p-2 rounded-lg text-xs font-bold text-sage-600 hover:bg-sage-50 transition active:scale-95', {
+                        'data-action': 'picker-year-next', textContent: '更晚 →'
+                    }));
+                    ys.appendChild(fragment); 
+                },
+                renderPickerMonths() { const s=Store.state.ui; const ms=document.getElementById('month-selector'); ms.innerHTML=''; const fragment=document.createDocumentFragment(); ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'].forEach((n,i)=>{fragment.appendChild(h('button',`p-3 rounded-lg text-sm font-bold transition ${i===s.calMonth?'bg-sage-500 text-white':'bg-gray-50 text-gray-700 hover:bg-gray-100'}`,{'data-action':'set-picker-month','data-month':i,textContent:n}));}); ms.appendChild(fragment); }
+            },
+            Period: {
+                renderStats() {
+                    const stats=App.Period.computeStats(); const sBar=document.getElementById('stability-bar'),statusEl=document.getElementById('period-status'),countEl=document.getElementById('period-countdown'),cycleEl=document.getElementById('avg-cycle'),durEl=document.getElementById('avg-duration'),nextEl=document.getElementById('next-period');
+                    if(Store.state.periodHistory.length===0){statusEl.textContent='暂无数据';countEl.textContent='--';cycleEl.textContent='-- 天';durEl.textContent='-- 天';nextEl.textContent='--';sBar.style.width='0%';return}
+                    cycleEl.textContent=`${stats.avgCycle} 天`; durEl.textContent=stats.avgDuration>0?`${stats.avgDuration} 天`:'进行中';
+                    
+                    if(stats.insufficientData){
+                        nextEl.textContent='数据不足';
+                    }
+                    else if(stats.nextPeriodRange){const rS=stats.nextPeriodRange[0].toLocaleDateString('zh-CN',{month:'short',day:'numeric'});const rE=stats.nextPeriodRange[1].toLocaleDateString('zh-CN',{day:'numeric'});nextEl.textContent=`${rS} ~ ${rE}`}
+                    else if(stats.nextPeriodDate){nextEl.textContent=stats.nextPeriodDate.toLocaleDateString('zh-CN',{month:'short',day:'numeric'})}
+                    
+                    const stability = Math.max(0, 100 - stats.stdDev * 10);
+                    sBar.style.width = `${stability}%`;
+                    
+                    if(stats.isOnPeriod){
+                        statusEl.textContent='经期中';
+                        countEl.textContent=`D${stats.currentPeriodDay}`;
+                        statusEl.className='text-sm font-bold text-dusty-500 mt-0.5';
+                    } else {
+                        const phase = App.Period.getDayPhase(getTodayStr());
+                        const phaseMap = { follicular: '卵泡期', ovulation: '排卵期', luteal: '黄体期' };
+                        statusEl.textContent = phaseMap[phase] || '周期中';
+                        countEl.textContent = stats.daysToNext > 0 ? stats.daysToNext : 0;
+                        statusEl.className = 'text-sm font-bold text-gray-600 mt-0.5';
+                    }
+                }
+            },
+            Timeline: {
+                render() {
+                    const s = Store.state; const today = getTodayStr(); const container = document.getElementById('timeline-events'); const fragment = document.createDocumentFragment();
+                    function makeRow(iconText, iconClass, textContent, extraEl) { const wrap = document.createElement('div'); wrap.className = 'ml-4 py-1'; const row = document.createElement('div'); row.className = 'flex items-center gap-2 text-sm text-gray-600'; const icon = document.createElement('span'); if (iconClass) icon.className = iconClass; icon.textContent = iconText; row.appendChild(icon); row.appendChild(document.createTextNode(textContent)); if (extraEl) row.appendChild(extraEl); wrap.appendChild(row); return wrap; }
+                    if (s.currentWater > 0) { let badge = null; if (s.currentWater >= s.waterGoal) { badge = document.createElement('span'); badge.className = 'text-[10px] bg-sage-100 text-sage-600 px-1.5 py-0.5 rounded-full font-bold'; badge.textContent = '达标'; } fragment.appendChild(makeRow('💧', 'text-sage-500', ` 喝水 ${s.currentWater}ml `, badge)); }
+                    const flow = s.dailyFlowLog[today]; const pStats = App.Period.computeStats(); const fMap = { spotting: '点滴', light: '少', medium: '中', heavy: '多' };
+                    
+                    if (flow) { 
+                        fragment.appendChild(makeRow('🩸', 'text-dusty-400', ` 经期记录 · 经量${fMap[flow] || ''}`)); 
+                    } else if (pStats.isOnPeriod) { 
+                        fragment.appendChild(makeRow('🩸', 'text-dusty-400', ` 经期 Day${pStats.currentPeriodDay}`)); 
+                    }
+                    
+                    const symps = s.symptomLog[today] || []; if (symps.length > 0) { const labels = symps.map(k => SYMPTOM_LIST.find(sl => sl.key === k)?.label).filter(Boolean); fragment.appendChild(makeRow('🤒', '', ` ${labels.join('、')}`)); }
+                    if (!fragment.hasChildNodes()) { const wrap = document.createElement('div'); wrap.className = 'ml-4 py-1'; const empty = document.createElement('div'); empty.className = 'text-sm text-gray-400 italic'; empty.textContent = '今天还没有记录，点击下方开始吧'; wrap.appendChild(empty); fragment.appendChild(wrap); }
+                    container.innerHTML = ''; container.appendChild(fragment);
+                }
+            }
+        };
+
+        UI.init();
+    </script>
+</body>
+</html>
